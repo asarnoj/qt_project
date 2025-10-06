@@ -4,7 +4,7 @@
 
 int main(int argc, char *argv[]) {
     std::cout << "=== Modular Sound Synthesis System ===" << std::endl;
-    std::cout << "🎛️ Starting synthesizer application..." << std::endl;
+    std::cout << "🎛️  Starting synthesizer application..." << std::endl;
     
     QApplication app(argc, argv);
     

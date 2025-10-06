@@ -40,29 +40,36 @@ std::vector<std::string> PresetManager::getPresetNames() const {
 void PresetManager::setupSimpleSine(Sound* sound, LiveController& controller) {
     auto sine = std::make_unique<SineOscillator>(44100.0);
     sine->setFrequency(440.0);
-    sine->setAmplitude(0.4);
+    // amplitude is automatically 1.0
     sine->registerParameters(controller);
     sound->addOscillator(std::move(sine));
+    
+    // Add master volume control
+    static double masterVolume = 0.7;
+    controller.addParameter("Master Volume", &masterVolume, 0.0, 1.0, 0.05);
+    // Update callback to set master volume on sound system would go here
 }
 
 void PresetManager::setupBasicFM(Sound* sound, LiveController& controller) {
     auto fmSynth = std::make_unique<FMSynthesizer>(44100.0);
     
-    // Create carrier and modulator
     auto carrier = std::make_unique<SineOscillator>(44100.0);
     carrier->setFrequency(440.0);
-    carrier->setAmplitude(1.0);
+    // amplitude automatically 1.0
     
     auto modulator = std::make_unique<SineOscillator>(44100.0);
     modulator->setFrequency(880.0);
-    modulator->setAmplitude(1.0);
+    // amplitude automatically 1.0
     
-    // Inject oscillators
     fmSynth->setCarrierOscillator(std::move(carrier));
     fmSynth->setModulatorOscillator(std::move(modulator));
     fmSynth->registerParameters(controller);
     
     sound->addOscillator(std::move(fmSynth));
+    
+    // Add master volume control
+    static double masterVolume = 0.7;
+    controller.addParameter("Master Volume", &masterVolume, 0.0, 1.0, 0.05);
 }
 
 void PresetManager::setupNestedFM(Sound* sound, LiveController& controller) {
@@ -74,25 +81,27 @@ void PresetManager::setupNestedFM(Sound* sound, LiveController& controller) {
     {
         auto nestedCarrier = std::make_unique<SineOscillator>(44100.0);
         nestedCarrier->setFrequency(440.0);
-        nestedCarrier->setAmplitude(1.0);
+        // amplitude automatically 1.0
         
         auto nestedModulator = std::make_unique<SineOscillator>(44100.0);
         nestedModulator->setFrequency(880.0);
-        nestedModulator->setAmplitude(1.0);
+        // amplitude automatically 1.0
         
         nestedFM->setCarrierOscillator(std::move(nestedCarrier));
         nestedFM->setModulatorOscillator(std::move(nestedModulator));
     }
     
-    // Use nested FM as carrier for main FM
     mainFM->setCarrierOscillator(std::move(nestedFM));
     
-    // Create simple modulator for main FM
     auto mainModulator = std::make_unique<SineOscillator>(44100.0);
     mainModulator->setFrequency(110.0);
-    mainModulator->setAmplitude(1.0);
+    // amplitude automatically 1.0
     mainFM->setModulatorOscillator(std::move(mainModulator));
     
     mainFM->registerParameters(controller);
     sound->addOscillator(std::move(mainFM));
+    
+    // Add master volume control
+    static double masterVolume = 0.7;
+    controller.addParameter("Master Volume", &masterVolume, 0.0, 1.0, 0.05);
 }

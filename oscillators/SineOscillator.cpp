@@ -3,8 +3,10 @@
 #include <iostream>  // Added missing include
 #include <cmath>
 
-SineOscillator::SineOscillator(double sampleRate)
-    : Oscillator(sampleRate) {}
+SineOscillator::SineOscillator(double sampleRate) : Oscillator(sampleRate) {
+    // Always use standardized amplitude of 1.0
+    amplitude = 1.0;
+}
 
 double SineOscillator::nextSample() {
     double sample = amplitude * sin(2.0 * M_PI * phase);
@@ -24,16 +26,11 @@ void SineOscillator::registerParameters(LiveController& controller) {
 void SineOscillator::registerParametersWithPrefix(LiveController& controller, const std::string& prefix) {
     std::cout << "🎛️ " << prefix << " registering sine parameters..." << std::endl;
     
-    // Register frequency parameter
+    // Only register frequency parameter - amplitude is always 1.0
     addParameterWithPrefix(controller, prefix, "Frequency", &frequency, 100.0, 1000.0, 20.0,
                           []() { 
                               // No additional update needed
                           });
     
-    // Register amplitude parameter
-    addParameterWithPrefix(controller, prefix, "Amplitude", &amplitude, 0.0, 1.0, 0.05,
-                          [this]() {
-                              if (amplitude > 1.0) amplitude = 1.0;
-                              if (amplitude < 0.0) amplitude = 0.0;
-                          });
+    // Remove amplitude parameter registration - it's now standardized to 1.0
 }

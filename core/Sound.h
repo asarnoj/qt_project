@@ -18,18 +18,27 @@ public:
     void generateSamples(double* buffer, int numSamples);
     double nextSample();
     
-    // Global parameters
+    // Master volume control
     void setMasterVolume(double volume);
-    double getMasterVolume() const;
-    double getSampleRate() const;
+    double getMasterVolume() const { return masterVolume; }
     
-    // Safety
-    static double clamp(double value, double min = -1.0, double max = 1.0);
+    // Mix ratios for combining oscillators
+    void setOscillatorMixRatio(int index, double ratio);
+    double getOscillatorMixRatio(int index) const;
+    
+    int getOscillatorCount() const { return static_cast<int>(oscillators.size()); }
+    
+    // Add missing method declarations
+    double getSampleRate() const;
+    double clamp(double value, double min, double max);
 
 private:
     std::vector<std::unique_ptr<Oscillator>> oscillators;
+    std::vector<double> mixRatios;  // Mix ratios for each oscillator
     double sampleRate;
     double masterVolume;
+    
+    void normalizeMixRatios();  // Ensure ratios sum to 1.0
 };
 
 #endif // SOUND_H
