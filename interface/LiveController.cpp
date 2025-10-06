@@ -21,6 +21,7 @@ void LiveController::increaseParameter(int index) {
         clampValue(index);
         std::cout << "📈 " << parameters[index].name << ": " 
                   << std::fixed << std::setprecision(2) << *parameters[index].valuePtr << std::endl;
+        executeCallback(index);
     }
 }
 
@@ -30,6 +31,7 @@ void LiveController::decreaseParameter(int index) {
         clampValue(index);
         std::cout << "📉 " << parameters[index].name << ": " 
                   << std::fixed << std::setprecision(2) << *parameters[index].valuePtr << std::endl;
+        executeCallback(index);
     }
 }
 
@@ -39,6 +41,21 @@ void LiveController::setParameter(int index, double value) {
         clampValue(index);
         std::cout << "🎛️  " << parameters[index].name << " set to: " 
                   << std::fixed << std::setprecision(2) << *parameters[index].valuePtr << std::endl;
+        executeCallback(index);
+    }
+}
+
+void LiveController::setParameterCallback(int index, std::function<void()> callback) {
+    if (index >= 0 && index < static_cast<int>(parameters.size())) {
+        parameters[index].callback = callback;
+    }
+}
+
+void LiveController::executeCallback(int index) {
+    if (index >= 0 && index < static_cast<int>(parameters.size())) {
+        if (parameters[index].callback) {
+            parameters[index].callback();
+        }
     }
 }
 

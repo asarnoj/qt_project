@@ -12,6 +12,7 @@ struct LiveParameter {
     double minValue;
     double maxValue;
     double step;               // How much to change per adjustment
+    std::function<void()> callback; // Callback when parameter changes
     
     LiveParameter(const std::string& n, double* ptr, double min, double max, double s = 0.1)
         : name(n), valuePtr(ptr), minValue(min), maxValue(max), step(s) {}
@@ -31,6 +32,9 @@ public:
     void decreaseParameter(int index);
     void setParameter(int index, double value);
     
+    // Callback management
+    void setParameterCallback(int index, std::function<void()> callback);
+    
     // Info functions
     void printParameters() const;
     void printControls() const;
@@ -41,6 +45,7 @@ private:
     std::vector<LiveParameter> parameters;
     
     void clampValue(int index);
+    void executeCallback(int index);
 };
 
 #endif // LIVECONTROLLER_H

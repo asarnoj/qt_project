@@ -30,16 +30,28 @@ double Oscillator::getSampleRate() const {
 
 void Oscillator::addParameterWithPrefix(LiveController& controller, const std::string& prefix,
                                        const std::string& name, double* valuePtr, double minVal, 
-                                       double maxVal, double step, std::function<void()> /* callback */) {
+                                       double maxVal, double step, std::function<void()> callback) {
     // Create full parameter name with prefix
     std::string fullName = prefix + " " + name;
     controller.addParameter(fullName, valuePtr, minVal, maxVal, step);
+    
+    // Connect the callback to the parameter
+    int paramIndex = controller.getParameterCount() - 1;
+    if (callback && paramIndex >= 0) {
+        controller.setParameterCallback(paramIndex, callback);
+    }
 }
 
 void Oscillator::addParameter(LiveController& controller, const std::string& name, 
                              double* valuePtr, double minVal, double maxVal, double step,
-                             std::function<void()> /* callback */) {
+                             std::function<void()> callback) {
     // Create parameter name with oscillator type prefix
     std::string fullName = getTypeName() + " " + name;
     controller.addParameter(fullName, valuePtr, minVal, maxVal, step);
+    
+    // Connect the callback to the parameter
+    int paramIndex = controller.getParameterCount() - 1;
+    if (callback && paramIndex >= 0) {
+        controller.setParameterCallback(paramIndex, callback);
+    }
 }

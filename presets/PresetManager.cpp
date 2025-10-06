@@ -44,10 +44,16 @@ void PresetManager::setupSimpleSine(Sound* sound, LiveController& controller) {
     sine->registerParameters(controller);
     sound->addOscillator(std::move(sine));
     
-    // Add master volume control
-    static double masterVolume = 0.7;
-    controller.addParameter("Master Volume", &masterVolume, 0.0, 1.0, 0.05);
-    // Update callback to set master volume on sound system would go here
+    // Add master volume control with proper callback to Sound object - FIXED
+    // Use Sound's own master volume pointer directly instead of creating a local variable
+    double* masterVolumePtr = sound->getMasterVolumePtr();
+    controller.addParameter("Master Volume", masterVolumePtr, 0.0, 1.0, 0.05);
+    controller.setParameterCallback(controller.getParameterCount() - 1, 
+                                   [sound]() {
+                                       // No need to dereference a pointer, just use the value directly
+                                       // since setMasterVolume will be working with the same memory location
+                                       sound->updateMasterVolume();
+                                   });
 }
 
 void PresetManager::setupBasicFM(Sound* sound, LiveController& controller) {
@@ -67,9 +73,13 @@ void PresetManager::setupBasicFM(Sound* sound, LiveController& controller) {
     
     sound->addOscillator(std::move(fmSynth));
     
-    // Add master volume control
-    static double masterVolume = 0.7;
-    controller.addParameter("Master Volume", &masterVolume, 0.0, 1.0, 0.05);
+    // Add master volume control with proper callback - FIXED
+    double* masterVolumePtr = sound->getMasterVolumePtr();
+    controller.addParameter("Master Volume", masterVolumePtr, 0.0, 1.0, 0.05);
+    controller.setParameterCallback(controller.getParameterCount() - 1, 
+                                   [sound]() {
+                                       sound->updateMasterVolume();
+                                   });
 }
 
 void PresetManager::setupNestedFM(Sound* sound, LiveController& controller) {
@@ -101,7 +111,11 @@ void PresetManager::setupNestedFM(Sound* sound, LiveController& controller) {
     mainFM->registerParameters(controller);
     sound->addOscillator(std::move(mainFM));
     
-    // Add master volume control
-    static double masterVolume = 0.7;
-    controller.addParameter("Master Volume", &masterVolume, 0.0, 1.0, 0.05);
+    // Add master volume control with proper callback - FIXED
+    double* masterVolumePtr = sound->getMasterVolumePtr();
+    controller.addParameter("Master Volume", masterVolumePtr, 0.0, 1.0, 0.05);
+    controller.setParameterCallback(controller.getParameterCount() - 1, 
+                                   [sound]() {
+                                       sound->updateMasterVolume();
+                                   });
 }

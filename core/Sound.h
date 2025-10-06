@@ -20,7 +20,9 @@ public:
     
     // Master volume control
     void setMasterVolume(double volume);
+    void updateMasterVolume() { setMasterVolume(*getMasterVolumePtr()); } // New method
     double getMasterVolume() const { return masterVolume; }
+    double* getMasterVolumePtr() { return &masterVolume; }  // Add this method
     
     // Mix ratios for combining oscillators
     void setOscillatorMixRatio(int index, double ratio);
