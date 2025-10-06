@@ -44,14 +44,11 @@ void PresetManager::setupSimpleSine(Sound* sound, LiveController& controller) {
     sine->registerParameters(controller);
     sound->addOscillator(std::move(sine));
     
-    // Add master volume control with proper callback to Sound object - FIXED
-    // Use Sound's own master volume pointer directly instead of creating a local variable
+    // Add master volume control with consistent 0-100 range
     double* masterVolumePtr = sound->getMasterVolumePtr();
-    controller.addParameter("Master Volume", masterVolumePtr, 0.0, 1.0, 0.05);
+    controller.addParameter("Master Volume", masterVolumePtr, 0, 100, 50);
     controller.setParameterCallback(controller.getParameterCount() - 1, 
                                    [sound]() {
-                                       // No need to dereference a pointer, just use the value directly
-                                       // since setMasterVolume will be working with the same memory location
                                        sound->updateMasterVolume();
                                    });
 }
@@ -73,9 +70,9 @@ void PresetManager::setupBasicFM(Sound* sound, LiveController& controller) {
     
     sound->addOscillator(std::move(fmSynth));
     
-    // Add master volume control with proper callback - FIXED
+    // Add master volume control with consistent 0-100 range
     double* masterVolumePtr = sound->getMasterVolumePtr();
-    controller.addParameter("Master Volume", masterVolumePtr, 0.0, 1.0, 0.05);
+    controller.addParameter("Master Volume", masterVolumePtr, 0, 100, 50);
     controller.setParameterCallback(controller.getParameterCount() - 1, 
                                    [sound]() {
                                        sound->updateMasterVolume();
@@ -89,7 +86,7 @@ void PresetManager::setupNestedFM(Sound* sound, LiveController& controller) {
     // Create simple sine oscillator as carrier
     auto carrier = std::make_unique<SineOscillator>(44100.0);
     carrier->setFrequency(440.0);
-    // amplitude automatically 1.0
+    // amplitude is automatically 1.0
     mainFM->setCarrierOscillator(std::move(carrier));
     
     // Create nested FM as modulator
@@ -117,9 +114,9 @@ void PresetManager::setupNestedFM(Sound* sound, LiveController& controller) {
     
     sound->addOscillator(std::move(mainFM));
     
-    // Add master volume control with proper callback
+    // Add master volume control with consistent 0-100 range (was already correct)
     double* masterVolumePtr = sound->getMasterVolumePtr();
-    controller.addParameter("Master Volume", masterVolumePtr, 0.0, 1.0, 0.05);
+    controller.addParameter("Master Volume", masterVolumePtr, 0, 100, 50);
     controller.setParameterCallback(controller.getParameterCount() - 1, 
                                   [sound]() {
                                       sound->updateMasterVolume();

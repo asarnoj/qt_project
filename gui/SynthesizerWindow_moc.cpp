@@ -41,17 +41,20 @@ template <> constexpr inline auto SynthesizerWindow::qt_create_metaobjectdata<qt
         "SynthesizerWindow",
         "onLoadPreset",
         "",
-        "updateDisplay",
+        "onPlay",
+        "onStop",
         "syncAudioParameters"
     };
 
     QtMocHelpers::UintData qt_methods {
         // Slot 'onLoadPreset'
         QtMocHelpers::SlotData<void()>(1, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'updateDisplay'
+        // Slot 'onPlay'
         QtMocHelpers::SlotData<void()>(3, 2, QMC::AccessPrivate, QMetaType::Void),
-        // Slot 'syncAudioParameters'
+        // Slot 'onStop'
         QtMocHelpers::SlotData<void()>(4, 2, QMC::AccessPrivate, QMetaType::Void),
+        // Slot 'syncAudioParameters'
+        QtMocHelpers::SlotData<void()>(5, 2, QMC::AccessPrivate, QMetaType::Void),
     };
     QtMocHelpers::UintData qt_properties {
     };
@@ -76,8 +79,9 @@ void SynthesizerWindow::qt_static_metacall(QObject *_o, QMetaObject::Call _c, in
     if (_c == QMetaObject::InvokeMetaMethod) {
         switch (_id) {
         case 0: _t->onLoadPreset(); break;
-        case 1: _t->updateDisplay(); break;
-        case 2: _t->syncAudioParameters(); break;
+        case 1: _t->onPlay(); break;
+        case 2: _t->onStop(); break;
+        case 3: _t->syncAudioParameters(); break;
         default: ;
         }
     }
@@ -103,14 +107,14 @@ int SynthesizerWindow::qt_metacall(QMetaObject::Call _c, int _id, void **_a)
     if (_id < 0)
         return _id;
     if (_c == QMetaObject::InvokeMetaMethod) {
-        if (_id < 3)
+        if (_id < 4)
             qt_static_metacall(this, _c, _id, _a);
-        _id -= 3;
+        _id -= 4;
     }
     if (_c == QMetaObject::RegisterMethodArgumentMetaType) {
-        if (_id < 3)
+        if (_id < 4)
             *reinterpret_cast<QMetaType *>(_a[0]) = QMetaType();
-        _id -= 3;
+        _id -= 4;
     }
     return _id;
 }

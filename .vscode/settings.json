@@ -38,6 +38,9 @@
         "streambuf": "cpp",
         "string_view": "cpp",
         "typeinfo": "cpp",
-        "variant": "cpp"
+        "variant": "cpp",
+        "complex": "cpp",
+        "__split_buffer": "cpp",
+        "list": "cpp"
     }
 }

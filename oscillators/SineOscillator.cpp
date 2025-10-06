@@ -34,8 +34,8 @@ void SineOscillator::registerParametersWithPrefix(LiveController& controller, co
     // Always register the frequency parameter, even when used as a component
     // This ensures each oscillator defines its own parameter ranges
     addParameterWithPrefix(controller, prefix, "Frequency", &frequency, 
-                          1.0, 2000.0, 20.0,
-                          [this]() { 
+                          1, 2000, 20,
+                          []() { 
                               // No additional update needed
                           });
     

@@ -65,11 +65,8 @@ double FMSynthesizer::nextSample() {
     double baseCarrierFreq = carrier->getFrequency();
     double modulatedPhaseIncrement = (baseCarrierFreq + frequencyOffset) / sampleRate;
     
-    // Store current carrier phase
-    double originalPhase = 0.0;
     if (auto* sineCarrier = dynamic_cast<SineOscillator*>(carrier.get())) {
         // If it's a sine oscillator, we can directly access its phase
-        originalPhase = sineCarrier->getPhase();
         
         // Set a temporary phase increment (this doesn't modify frequency)
         sineCarrier->setPhaseIncrement(modulatedPhaseIncrement);

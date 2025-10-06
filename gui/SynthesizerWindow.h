@@ -2,7 +2,6 @@
 #define SYNTHESIZERWINDOW_H
 
 #include <QMainWindow>
-#include <QTextEdit>
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QPushButton>
@@ -12,7 +11,7 @@
 #include <QScrollArea>
 #include <QSlider>
 #include <QLineEdit>
-#include <QDoubleValidator>
+#include <QDoubleValidator> 
 #include <vector>
 #include "../interface/LiveController.h"
 #include "../presets/PresetManager.h"
@@ -27,16 +26,18 @@ public:
 
 private slots:
     void onLoadPreset();
-    void updateDisplay();
+    void onPlay();
+    void onStop();
     void syncAudioParameters();
 
 private:
     // GUI Components
     QWidget* mainWidget;
     QVBoxLayout* mainLayout;
-    QTextEdit* parameterDisplay;
     QComboBox* presetSelector;
     QPushButton* loadButton;
+    QPushButton* playButton;
+    QPushButton* stopButton;
     QLabel* controlsLabel;
     
     // Scrolling components
@@ -53,9 +54,11 @@ private:
     LiveController controller;
     PresetManager presetManager;
     
-    // Timers
-    QTimer* displayUpdateTimer;
+    // Timer for audio sync
     QTimer* audioSyncTimer;
+    
+    // Playback state
+    bool isPlaying;
     
     // Methods
     void setupUI();
