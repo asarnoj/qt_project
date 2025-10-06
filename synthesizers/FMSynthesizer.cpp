@@ -57,23 +57,38 @@ double FMSynthesizer::nextSample() {
     // Get the modulator's output sample
     double modulatorOutput = modulator->nextSample();
     
-    // IMPORTANT: Use the ACTUAL carrier frequency, not just our stored value
-    // This ensures changes to the carrier oscillator are reflected in modulation
+    // Calculate the instantaneous frequency offset from modulation
+    double frequencyOffset = modulatorOutput * modulationDepth;
+    
+    // Create a phase increment based on modulated frequency
+    // This is more accurate than temporarily modifying the carrier frequency
     double baseCarrierFreq = carrier->getFrequency();
+    double modulatedPhaseIncrement = (baseCarrierFreq + frequencyOffset) / sampleRate;
     
-    // Calculate the instantaneous frequency with FM applied
-    double modulatedFreq = baseCarrierFreq + (modulatorOutput * modulationDepth);
-    
-    // Temporarily set the carrier to the modulated frequency
-    carrier->setFrequency(modulatedFreq);
-    
-    // Get the carrier's output sample
-    double sample = carrier->nextSample() * amplitude;
-    
-    // Restore the carrier's original frequency
-    carrier->setFrequency(baseCarrierFreq);
-    
-    return sample;
+    // Store current carrier phase
+    double originalPhase = 0.0;
+    if (auto* sineCarrier = dynamic_cast<SineOscillator*>(carrier.get())) {
+        // If it's a sine oscillator, we can directly access its phase
+        originalPhase = sineCarrier->getPhase();
+        
+        // Set a temporary phase increment (this doesn't modify frequency)
+        sineCarrier->setPhaseIncrement(modulatedPhaseIncrement);
+        
+        // Get output with modulated phase
+        double sample = carrier->nextSample() * amplitude;
+        
+        // Reset to normal behavior
+        sineCarrier->resetPhaseIncrement();
+        
+        return sample;
+    } else {
+        // Fall back to old method for non-sine carriers
+        double originalFrequency = carrier->getFrequency();
+        carrier->setFrequency(baseCarrierFreq + frequencyOffset);
+        double sample = carrier->nextSample() * amplitude;
+        carrier->setFrequency(originalFrequency);
+        return sample;
+    }
 }
 
 void FMSynthesizer::setFrequency(double freq) {

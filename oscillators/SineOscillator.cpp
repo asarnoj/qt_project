@@ -1,6 +1,6 @@
 #include "SineOscillator.h"
 #include "../interface/LiveController.h"
-#include <iostream>  // Added missing include
+#include <iostream>
 #include <cmath>
 
 SineOscillator::SineOscillator(double sampleRate) : Oscillator(sampleRate) {
@@ -11,8 +11,13 @@ SineOscillator::SineOscillator(double sampleRate) : Oscillator(sampleRate) {
 double SineOscillator::nextSample() {
     double sample = amplitude * sin(2.0 * M_PI * phase);
 
-    // Advance phase
-    phase += frequency / sampleRate;
+    // Advance phase - use custom increment if provided (for FM synthesis)
+    if (useCustomPhaseIncrement) {
+        phase += customPhaseIncrement;
+    } else {
+        phase += frequency / sampleRate;
+    }
+    
     if (phase >= 1.0)
         phase -= 1.0;
 

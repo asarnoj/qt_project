@@ -12,9 +12,10 @@ MOC = $(QT6_CELLAR)/share/qt/libexec/moc
 # Source directories - add presets and gui directories
 SRC_DIRS = . core oscillators synthesizers audio interface presets gui
 
-# Find all .cpp files but exclude old interface and GUI files
+# TEMPORARILY include legacy files until we finish the transition
 ALL_SOURCES = $(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.cpp))
-SOURCES = $(filter-out core/SoundInterface.cpp core/SoundPreset.cpp presets/PresetLibrary.cpp interface/SimpleInterface.cpp gui/ParameterControlWidget.cpp, $(ALL_SOURCES))
+# SOURCES = $(filter-out core/SoundInterface.cpp core/SoundPreset.cpp presets/PresetLibrary.cpp interface/SimpleInterface.cpp gui/ParameterControlWidget.cpp, $(ALL_SOURCES))
+SOURCES = $(ALL_SOURCES)
 OBJECTS = $(SOURCES:.cpp=.o)
 
 # MOC files - only SynthesizerWindow and AudioEngine
@@ -24,6 +25,7 @@ MOC_OBJECTS = $(MOC_SOURCES:.cpp=.o)
 
 TARGET = synth_live
 
+# IMPORTANT: The all target must be the first target defined!
 # Default target - live audio with Qt6
 all: $(TARGET)
 
@@ -56,6 +58,10 @@ clean:
 	rm -f $(foreach dir,$(SRC_DIRS),$(dir)/*.o) $(MOC_SOURCES) $(TARGET)
 	rm -f gui/ParameterControlWidget_moc.*  # Clean up any remaining old files
 
+# Add a clean target for removing legacy files completely
+clean-legacy:
+	rm -f core/SoundInterface.* core/SoundPreset.* presets/PresetLibrary.* interface/SimpleInterface.*
+
 # Rebuild everything
 rebuild: clean all
 
@@ -71,4 +77,4 @@ debug-libs:
 	@echo "Looking for Qt6 frameworks:"
 	@find $(QT6_PATH)/lib -name "*Qt*" -type d 2>/dev/null | head -5
 
-.PHONY: all clean rebuild debug-qt debug-libs
+.PHONY: all clean rebuild debug-qt debug-libs clean-legacy

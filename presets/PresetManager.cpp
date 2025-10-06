@@ -86,27 +86,31 @@ void PresetManager::setupNestedFM(Sound* sound, LiveController& controller) {
     // Create main FM synthesizer
     auto mainFM = std::make_unique<FMSynthesizer>(44100.0);
     
-    // Create nested FM as carrier
+    // Create simple sine oscillator as carrier
+    auto carrier = std::make_unique<SineOscillator>(44100.0);
+    carrier->setFrequency(440.0);
+    // amplitude automatically 1.0
+    mainFM->setCarrierOscillator(std::move(carrier));
+    
+    // Create nested FM as modulator
     auto nestedFM = std::make_unique<FMSynthesizer>(44100.0);
     {
         auto nestedCarrier = std::make_unique<SineOscillator>(44100.0);
-        nestedCarrier->setFrequency(440.0);
+        nestedCarrier->setFrequency(220.0); // Changed frequency for better sound
         // amplitude automatically 1.0
         
         auto nestedModulator = std::make_unique<SineOscillator>(44100.0);
-        nestedModulator->setFrequency(880.0);
+        nestedModulator->setFrequency(55.0); // Changed frequency for better sound
         // amplitude automatically 1.0
         
         nestedFM->setCarrierOscillator(std::move(nestedCarrier));
         nestedFM->setModulatorOscillator(std::move(nestedModulator));
+        nestedFM->setModulationDepth(50.0); // Set reasonable default depth
     }
     
-    mainFM->setCarrierOscillator(std::move(nestedFM));
-    
-    auto mainModulator = std::make_unique<SineOscillator>(44100.0);
-    mainModulator->setFrequency(110.0);
-    // amplitude automatically 1.0
-    mainFM->setModulatorOscillator(std::move(mainModulator));
+    // Set the nested FM as the modulator for main FM
+    mainFM->setModulatorOscillator(std::move(nestedFM));
+    mainFM->setModulationDepth(30.0); // Lower depth for more subtle effect
     
     // Register parameters in a way that clearly shows the hierarchical structure
     mainFM->registerParameters(controller);

@@ -1,6 +1,7 @@
 #include "SynthesizerWindow.h"
 #include <QApplication>
 #include <iostream>
+#include <sstream>  // Add this for std::istringstream
 
 SynthesizerWindow::SynthesizerWindow(QWidget* parent)
     : QMainWindow(parent), mainWidget(nullptr), mainLayout(nullptr) {
@@ -139,100 +140,115 @@ void SynthesizerWindow::createParameterControls() {
     // Parse parameter names to create hierarchical structure
     std::map<std::string, std::vector<int>> parameterGroups;
     
-    // Group parameters by their prefix hierarchy
+    // First pass: analyze all parameters to detect hierarchical structure
+    std::vector<std::string> prefixes;
     for (int i = 0; i < controller.getParameterCount(); ++i) {
         const auto& param = controller.getParameter(i);
         std::string paramName = param.name;
         
-        // Extract the base component name with improved hierarchy detection
-        std::string groupKey = "Main";
-        
-        // Master volume always goes in its own group
-        if (paramName.find("Master Volume") != std::string::npos) {
-            groupKey = "Master Controls";
-        }
-        // Handle nested FM structure with improved detection logic
-        else if (paramName.find("FM Carrier Carrier") != std::string::npos) {
-            // Deeper nested FM structure
-            groupKey = "FM → Carrier → Nested FM";
-        } 
-        else if (paramName.find("FM Carrier Modulator") != std::string::npos) {
-            groupKey = "FM → Carrier → Modulator";
-        }
-        else if (paramName.find("FM Carrier") != std::string::npos) {
-            // Check if this is a Sine oscillator parameter
-            if (paramName.find("Sine") != std::string::npos) {
-                groupKey = "FM → Carrier → Sine Oscillator";
-            } else {
-                groupKey = "FM → Carrier";
-            }
-        }
-        else if (paramName.find("FM Modulator") != std::string::npos) {
-            // Check if this is a Sine oscillator parameter
-            if (paramName.find("Sine") != std::string::npos) {
-                groupKey = "FM → Modulator → Sine Oscillator";
-            } else {
-                groupKey = "FM → Modulator";
-            }
-        }
-        else if (paramName.find("FM") != std::string::npos) {
-            // Main FM parameters
-            groupKey = "FM Synthesizer";
-        }
-        else if (paramName.find("Sine") != std::string::npos) {
-            // Top-level sine oscillator
-            groupKey = "Sine Oscillator";
-        }
-        
-        parameterGroups[groupKey].push_back(i);
-    }
-    
-    // Create grouped controls with clear hierarchy
-    // Sort the keys to ensure consistent ordering
-    std::vector<std::string> sortedKeys;
-    for (const auto& entry : parameterGroups) {
-        sortedKeys.push_back(entry.first);
-    }
-    
-    // Custom sort to ensure proper hierarchical display order
-    std::sort(sortedKeys.begin(), sortedKeys.end(), [](const std::string& a, const std::string& b) {
-        // Custom sorting logic for hierarchical display
-        
-        // Master Controls should always be last
-        if (a == "Master Controls") return false;
-        if (b == "Master Controls") return true;
-        
-        // Main categories come first
-        bool aIsMain = (a == "Sine Oscillator" || a == "FM Synthesizer");
-        bool bIsMain = (b == "Sine Oscillator" || b == "FM Synthesizer");
-        if (aIsMain && !bIsMain) return true;
-        if (!aIsMain && bIsMain) return false;
-        
-        // Sort by nesting depth (more arrows = deeper nesting)
-        // Fix: Count occurrences of the arrow string instead of character
-        size_t aDepth = 0;
+        // Extract all possible prefixes
         size_t pos = 0;
-        std::string arrow = "→";
-        while ((pos = a.find(arrow, pos)) != std::string::npos) {
-            aDepth++;
-            pos += arrow.length();
+        while ((pos = paramName.find(" ", pos)) != std::string::npos) {
+            std::string prefix = paramName.substr(0, pos);
+            if (std::find(prefixes.begin(), prefixes.end(), prefix) == prefixes.end()) {
+                prefixes.push_back(prefix);
+            }
+            pos++;
         }
-        
-        size_t bDepth = 0;
-        pos = 0;
-        while ((pos = b.find(arrow, pos)) != std::string::npos) {
-            bDepth++;
-            pos += arrow.length();
-        }
-        
-        if (aDepth != bDepth) return aDepth < bDepth;
-        
-        // Finally sort alphabetically
-        return a < b;
-    });
+    }
     
-    for (const auto& key : sortedKeys) {
-        createParameterGroup(key, parameterGroups[key]);
+    // Sort prefixes by specificity (longest first)
+    std::sort(prefixes.begin(), prefixes.end(), 
+              [](const std::string& a, const std::string& b) {
+                  return a.length() > b.length();
+              });
+    
+    // Second pass: assign parameters to groups based on most specific matching prefix
+    for (int i = 0; i < controller.getParameterCount(); ++i) {
+        const auto& param = controller.getParameter(i);
+        std::string paramName = param.name;
+        
+        // Special case for Master Volume
+        if (paramName == "Master Volume") {
+            parameterGroups["Master Controls"].push_back(i);
+            continue;
+        }
+        
+        // Find most specific matching prefix
+        bool assigned = false;
+        for (const auto& prefix : prefixes) {
+            if (paramName.rfind(prefix, 0) == 0) {
+                parameterGroups[prefix].push_back(i);
+                assigned = true;
+                break;
+            }
+        }
+        
+        // Default group if no prefix matches
+        if (!assigned) {
+            parameterGroups["Main"].push_back(i);
+        }
+    }
+    
+    // Create hierarchical structure from flat prefix groups
+    std::map<std::string, std::map<std::string, std::vector<int>>> hierarchicalGroups;
+    
+    for (const auto& entry : parameterGroups) {
+        std::string prefix = entry.first;
+        std::vector<int> indices = entry.second;
+        
+        // Split prefix by spaces to determine hierarchy
+        std::vector<std::string> parts;
+        std::istringstream iss(prefix);
+        std::string part;
+        while (std::getline(iss, part, ' ')) {
+            if (!part.empty()) parts.push_back(part);
+        }
+        
+        // Create hierarchical path
+        std::string path;
+        for (size_t i = 0; i < parts.size(); ++i) {
+            if (i > 0) path += " → ";
+            path += parts[i];
+        }
+        
+        // Create top-level category
+        std::string topLevel = parts.empty() ? "Main" : parts[0];
+        hierarchicalGroups[topLevel][path] = indices;
+    }
+    
+    // Create controls based on hierarchical structure
+    for (const auto& topLevel : hierarchicalGroups) {
+        std::string topLevelName = topLevel.first;
+        
+        // Create group header with special styling for top level
+        QLabel* topLevelHeader = new QLabel(QString::fromStdString("📁 " + topLevelName));
+        topLevelHeader->setStyleSheet(
+            "font-weight: bold; font-size: 16px; background-color: #E0E7FF;"
+            "border-left: 5px solid #3498DB; padding: 10px; margin-top: 10px;"
+        );
+        scrollLayout->addWidget(topLevelHeader);
+        
+        // Create subgroups
+        for (const auto& subgroup : topLevel.second) {
+            std::string path = subgroup.first;
+            std::vector<int> indices = subgroup.second;
+            
+            // Skip creating redundant groups
+            if (path != topLevelName) {
+                createParameterGroup(path, indices);
+            } else {
+                // Create parameters directly for simple groups
+                for (int paramIndex : indices) {
+                    createSingleParameter(paramIndex, 1);
+                }
+            }
+        }
+        
+        // Add spacing between top-level groups
+        QLabel* spacer = new QLabel("");
+        spacer->setFixedHeight(15);
+        scrollLayout->addWidget(spacer);
     }
 }
 

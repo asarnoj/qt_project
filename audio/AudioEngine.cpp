@@ -61,21 +61,44 @@ void AudioEngine::start() {
     // Get default audio device
     QAudioDevice audioDevice = QMediaDevices::defaultAudioOutput();
     
-    // Check format support
-    if (!audioDevice.isFormatSupported(format)) {
-        format.setSampleFormat(QAudioFormat::Int16);
+    // Check if we have a valid audio device
+    if (!audioDevice.isNull()) {
+        // Check format support
+        if (!audioDevice.isFormatSupported(format)) {
+            qWarning() << "Warning: Default format not supported - trying to use nearest";
+            format = audioDevice.preferredFormat();
+        }
+        
+        // Create audio sink
+        audioOutput = new QAudioSink(audioDevice, format, this);
+        audioOutput->setVolume(1.0);
+        
+        // Create audio device
+        ioDevice = new AudioIODevice(sound.get(), this);
+        ioDevice->open(QIODevice::ReadOnly);
+        
+        // Start audio
+        audioOutput->start(ioDevice);
+        
+        // Monitor state
+        connect(audioOutput, &QAudioSink::stateChanged, this, [this](QAudio::State state) {
+            switch (state) {
+                case QAudio::IdleState:
+                    qDebug() << "Audio system idle";
+                    break;
+                case QAudio::StoppedState:
+                    // Check for errors
+                    if (audioOutput->error() != QAudio::NoError) {
+                        qWarning() << "Audio output error:" << audioOutput->error();
+                    }
+                    break;
+                default:
+                    break;
+            }
+        });
+    } else {
+        qWarning() << "No audio output device found!";
     }
-    
-    // Create audio sink
-    audioOutput = new QAudioSink(audioDevice, format, this);
-    audioOutput->setVolume(1.0);
-    
-    // Create audio device
-    ioDevice = new AudioIODevice(sound.get(), this);
-    ioDevice->open(QIODevice::ReadOnly);  // Explicitly open for reading
-    
-    // Start audio
-    audioOutput->start(ioDevice);
 }
 
 void AudioEngine::stop() {
