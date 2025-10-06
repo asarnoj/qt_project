@@ -108,14 +108,16 @@ void PresetManager::setupNestedFM(Sound* sound, LiveController& controller) {
     // amplitude automatically 1.0
     mainFM->setModulatorOscillator(std::move(mainModulator));
     
+    // Register parameters in a way that clearly shows the hierarchical structure
     mainFM->registerParameters(controller);
+    
     sound->addOscillator(std::move(mainFM));
     
-    // Add master volume control with proper callback - FIXED
+    // Add master volume control with proper callback
     double* masterVolumePtr = sound->getMasterVolumePtr();
     controller.addParameter("Master Volume", masterVolumePtr, 0.0, 1.0, 0.05);
     controller.setParameterCallback(controller.getParameterCount() - 1, 
-                                   [sound]() {
-                                       sound->updateMasterVolume();
-                                   });
+                                  [sound]() {
+                                      sound->updateMasterVolume();
+                                  });
 }

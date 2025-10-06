@@ -23,7 +23,7 @@ SynthesizerWindow::~SynthesizerWindow() {
 
 void SynthesizerWindow::setupUI() {
     setWindowTitle("🎛️ Modular Synthesizer");
-    setFixedSize(750, 650);
+    setMinimumSize(850, 700); // Increased width to accommodate sliders
     
     mainWidget = new QWidget();
     mainLayout = new QVBoxLayout(mainWidget);
@@ -69,7 +69,25 @@ void SynthesizerWindow::setupUI() {
     controlsLabel->setAlignment(Qt::AlignCenter);
     mainLayout->addWidget(controlsLabel);
     
-    mainLayout->addStretch();
+    // Create scrollable area for parameters
+    scrollArea = new QScrollArea();
+    scrollArea->setWidgetResizable(true);
+    scrollArea->setHorizontalScrollBarPolicy(Qt::ScrollBarAlwaysOff);
+    scrollArea->setVerticalScrollBarPolicy(Qt::ScrollBarAsNeeded);
+    scrollArea->setStyleSheet("QScrollArea { border: none; background-color: transparent; }");
+    
+    // Create content widget for the scroll area
+    scrollContent = new QWidget();
+    scrollLayout = new QVBoxLayout(scrollContent);
+    scrollLayout->setAlignment(Qt::AlignTop);
+    scrollLayout->setSpacing(5);
+    scrollLayout->setContentsMargins(5, 5, 5, 5);
+    
+    // Add the content widget to scroll area
+    scrollArea->setWidget(scrollContent);
+    
+    // Add scroll area to main layout
+    mainLayout->addWidget(scrollArea, 1); // 1 = stretch factor to take available space
     
     // Connect signals
     connect(loadButton, &QPushButton::clicked, this, &SynthesizerWindow::onLoadPreset);
@@ -102,11 +120,19 @@ void SynthesizerWindow::clearDynamicControls() {
             }
             delete item;
         }
-        mainLayout->removeItem(layout);
+        // Do not remove from mainLayout anymore as we're using scrollLayout
         delete layout;
     }
     parameterLayouts.clear();
     controlButtons.clear();
+    
+    // Clear all widgets from scroll content layout
+    while (QLayoutItem* item = scrollLayout->takeAt(0)) {
+        if (QWidget* widget = item->widget()) {
+            delete widget;
+        }
+        delete item;
+    }
 }
 
 void SynthesizerWindow::createParameterControls() {
@@ -118,17 +144,43 @@ void SynthesizerWindow::createParameterControls() {
         const auto& param = controller.getParameter(i);
         std::string paramName = param.name;
         
-        // Extract the base component name (e.g., "FM", "FM Carrier", "FM Carrier Carrier")
+        // Extract the base component name with improved hierarchy detection
         std::string groupKey = "Main";
-        if (paramName.find("FM Carrier Carrier") != std::string::npos) {
+        
+        // Master volume always goes in its own group
+        if (paramName.find("Master Volume") != std::string::npos) {
+            groupKey = "Master Controls";
+        }
+        // Handle nested FM structure with improved detection logic
+        else if (paramName.find("FM Carrier Carrier") != std::string::npos) {
+            // Deeper nested FM structure
             groupKey = "FM → Carrier → Nested FM";
-        } else if (paramName.find("FM Carrier") != std::string::npos) {
-            groupKey = "FM → Carrier";
-        } else if (paramName.find("FM Modulator") != std::string::npos) {
-            groupKey = "FM → Modulator";
-        } else if (paramName.find("FM") != std::string::npos) {
-            groupKey = "FM → Main";
-        } else if (paramName.find("Sine") != std::string::npos) {
+        } 
+        else if (paramName.find("FM Carrier Modulator") != std::string::npos) {
+            groupKey = "FM → Carrier → Modulator";
+        }
+        else if (paramName.find("FM Carrier") != std::string::npos) {
+            // Check if this is a Sine oscillator parameter
+            if (paramName.find("Sine") != std::string::npos) {
+                groupKey = "FM → Carrier → Sine Oscillator";
+            } else {
+                groupKey = "FM → Carrier";
+            }
+        }
+        else if (paramName.find("FM Modulator") != std::string::npos) {
+            // Check if this is a Sine oscillator parameter
+            if (paramName.find("Sine") != std::string::npos) {
+                groupKey = "FM → Modulator → Sine Oscillator";
+            } else {
+                groupKey = "FM → Modulator";
+            }
+        }
+        else if (paramName.find("FM") != std::string::npos) {
+            // Main FM parameters
+            groupKey = "FM Synthesizer";
+        }
+        else if (paramName.find("Sine") != std::string::npos) {
+            // Top-level sine oscillator
             groupKey = "Sine Oscillator";
         }
         
@@ -136,8 +188,51 @@ void SynthesizerWindow::createParameterControls() {
     }
     
     // Create grouped controls with clear hierarchy
-    for (const auto& group : parameterGroups) {
-        createParameterGroup(group.first, group.second);
+    // Sort the keys to ensure consistent ordering
+    std::vector<std::string> sortedKeys;
+    for (const auto& entry : parameterGroups) {
+        sortedKeys.push_back(entry.first);
+    }
+    
+    // Custom sort to ensure proper hierarchical display order
+    std::sort(sortedKeys.begin(), sortedKeys.end(), [](const std::string& a, const std::string& b) {
+        // Custom sorting logic for hierarchical display
+        
+        // Master Controls should always be last
+        if (a == "Master Controls") return false;
+        if (b == "Master Controls") return true;
+        
+        // Main categories come first
+        bool aIsMain = (a == "Sine Oscillator" || a == "FM Synthesizer");
+        bool bIsMain = (b == "Sine Oscillator" || b == "FM Synthesizer");
+        if (aIsMain && !bIsMain) return true;
+        if (!aIsMain && bIsMain) return false;
+        
+        // Sort by nesting depth (more arrows = deeper nesting)
+        // Fix: Count occurrences of the arrow string instead of character
+        size_t aDepth = 0;
+        size_t pos = 0;
+        std::string arrow = "→";
+        while ((pos = a.find(arrow, pos)) != std::string::npos) {
+            aDepth++;
+            pos += arrow.length();
+        }
+        
+        size_t bDepth = 0;
+        pos = 0;
+        while ((pos = b.find(arrow, pos)) != std::string::npos) {
+            bDepth++;
+            pos += arrow.length();
+        }
+        
+        if (aDepth != bDepth) return aDepth < bDepth;
+        
+        // Finally sort alphabetically
+        return a < b;
+    });
+    
+    for (const auto& key : sortedKeys) {
+        createParameterGroup(key, parameterGroups[key]);
     }
 }
 
@@ -179,7 +274,8 @@ void SynthesizerWindow::createParameterGroup(const std::string& groupName, const
     headerLayout->addWidget(groupLabel);
     headerLayout->addStretch();
     
-    mainLayout->insertLayout(mainLayout->count() - 1, headerLayout);
+    // Add to scroll layout instead of main layout
+    scrollLayout->addLayout(headerLayout);
     parameterLayouts.push_back(headerLayout);
     
     // Create parameters for this group
@@ -190,7 +286,7 @@ void SynthesizerWindow::createParameterGroup(const std::string& groupName, const
     // Add spacing after group
     QLabel* spacer = new QLabel("");
     spacer->setFixedHeight(10);
-    mainLayout->insertWidget(mainLayout->count() - 1, spacer);
+    scrollLayout->addWidget(spacer);
 }
 
 void SynthesizerWindow::createSingleParameter(int paramIndex, int indentLevel) {
@@ -213,7 +309,7 @@ void SynthesizerWindow::createSingleParameter(int paramIndex, int indentLevel) {
     
     // Parameter label with indentation
     QLabel* label = new QLabel(indentStr + "🔧 " + QString::fromStdString(displayName) + ":");
-    label->setFixedWidth(200 + (indentLevel * 20));  // Wider for indented items
+    label->setFixedWidth(180 + (indentLevel * 20));  // Slightly narrower to accommodate slider
     
     // Styling based on hierarchy level
     QString labelStyle = "font-weight: bold; padding: 2px;";
@@ -227,24 +323,27 @@ void SynthesizerWindow::createSingleParameter(int paramIndex, int indentLevel) {
     label->setStyleSheet(labelStyle);
     paramLayout->addWidget(label);
     
-    // Decrease button
-    QPushButton* decBtn = new QPushButton("−");
-    decBtn->setFixedSize(25, 25);
-    decBtn->setStyleSheet("font-weight: bold; font-size: 14px; background-color: #E74C3C; color: white; border-radius: 12px;");
-    paramLayout->addWidget(decBtn);
+    // Create slider for value adjustment
+    QSlider* slider = new QSlider(Qt::Horizontal);
+    slider->setRange(0, 1000); // 1000 steps for fine control
+    slider->setValue(((*param.valuePtr - param.minValue) / (param.maxValue - param.minValue)) * 1000);
+    slider->setStyleSheet("QSlider::groove:horizontal { height: 8px; background: #E0E0E0; } "
+                         "QSlider::handle:horizontal { background: #3498DB; width: 18px; margin: -5px 0; border-radius: 9px; }");
+    slider->setFixedWidth(150);
+    paramLayout->addWidget(slider);
     
-    // Value display
-    QLabel* valueLabel = new QLabel(QString::number(*param.valuePtr, 'f', 1));
-    valueLabel->setFixedWidth(70);
-    valueLabel->setAlignment(Qt::AlignCenter);
-    valueLabel->setStyleSheet("border: 2px solid #BDC3C7; padding: 4px; background: white; border-radius: 4px;");
-    paramLayout->addWidget(valueLabel);
+    // Value display as an editable field
+    QLineEdit* valueEdit = new QLineEdit(QString::number(*param.valuePtr, 'f', 1));
+    valueEdit->setFixedWidth(70);
+    valueEdit->setAlignment(Qt::AlignCenter);
+    valueEdit->setStyleSheet("border: 2px solid #BDC3C7; padding: 4px; background: white; border-radius: 4px;");
     
-    // Increase button
-    QPushButton* incBtn = new QPushButton("+");
-    incBtn->setFixedSize(25, 25);
-    incBtn->setStyleSheet("font-weight: bold; font-size: 14px; background-color: #27AE60; color: white; border-radius: 12px;");
-    paramLayout->addWidget(incBtn);
+    // Set validator for the edit field
+    QDoubleValidator* validator = new QDoubleValidator(param.minValue, param.maxValue, 1, valueEdit);
+    validator->setNotation(QDoubleValidator::StandardNotation);
+    valueEdit->setValidator(validator);
+    
+    paramLayout->addWidget(valueEdit);
     
     // Range info with smaller, subtle styling
     QLabel* rangeLabel = new QLabel(QString("(%1 - %2)")
@@ -254,21 +353,27 @@ void SynthesizerWindow::createSingleParameter(int paramIndex, int indentLevel) {
     paramLayout->addWidget(rangeLabel);
     paramLayout->addStretch();
     
-    // Connect buttons
-    connect(decBtn, &QPushButton::clicked, [this, paramIndex, valueLabel, &param]() {
-        controller.decreaseParameter(paramIndex);
-        valueLabel->setText(QString::number(*param.valuePtr, 'f', 1));
+    // Connect slider to update both the parameter and the line edit
+    connect(slider, &QSlider::valueChanged, [this, paramIndex, valueEdit, &param, slider]() {
+        double normalizedValue = slider->value() / 1000.0;
+        double actualValue = param.minValue + normalizedValue * (param.maxValue - param.minValue);
+        controller.setParameter(paramIndex, actualValue);
+        valueEdit->setText(QString::number(actualValue, 'f', 1));
     });
     
-    connect(incBtn, &QPushButton::clicked, [this, paramIndex, valueLabel, &param]() {
-        controller.increaseParameter(paramIndex);
-        valueLabel->setText(QString::number(*param.valuePtr, 'f', 1));
+    // Connect line edit to update both the parameter and the slider
+    connect(valueEdit, &QLineEdit::editingFinished, [this, paramIndex, valueEdit, &param, slider]() {
+        double value = valueEdit->text().toDouble();
+        controller.setParameter(paramIndex, value);
+        
+        // Update slider position
+        double normalizedValue = (value - param.minValue) / (param.maxValue - param.minValue);
+        slider->setValue(normalizedValue * 1000);
     });
     
-    mainLayout->insertLayout(mainLayout->count() - 1, paramLayout);
+    // Add to scroll layout instead of main layout
+    scrollLayout->addLayout(paramLayout);
     parameterLayouts.push_back(paramLayout);
-    controlButtons.push_back(decBtn);
-    controlButtons.push_back(incBtn);
 }
 
 void SynthesizerWindow::updateDisplay() {
@@ -282,14 +387,36 @@ void SynthesizerWindow::updateDisplay() {
         std::string paramName = param.name;
         
         std::string groupKey = "Main";
-        if (paramName.find("FM Carrier Carrier") != std::string::npos) {
-            groupKey = "  └─ Carrier (Nested FM)";
-        } else if (paramName.find("FM Carrier") != std::string::npos) {
-            groupKey = "├─ Carrier";
-        } else if (paramName.find("FM Modulator") != std::string::npos) {
-            groupKey = "└─ Modulator";
-        } else if (paramName.find("FM") != std::string::npos) {
+        
+        // Match grouping logic from createParameterControls
+        if (paramName.find("Master Volume") != std::string::npos) {
+            groupKey = "Master Controls";
+        }
+        else if (paramName.find("FM Carrier Carrier") != std::string::npos) {
+            groupKey = "  └─ Carrier → Nested FM";
+        }
+        else if (paramName.find("FM Carrier Modulator") != std::string::npos) {
+            groupKey = "  └─ Carrier → Modulator";
+        }
+        else if (paramName.find("FM Carrier") != std::string::npos) {
+            if (paramName.find("Sine") != std::string::npos) {
+                groupKey = "  └─ Carrier → Sine Oscillator";
+            } else {
+                groupKey = "├─ Carrier";
+            }
+        }
+        else if (paramName.find("FM Modulator") != std::string::npos) {
+            if (paramName.find("Sine") != std::string::npos) {
+                groupKey = "  └─ Modulator → Sine Oscillator";
+            } else {
+                groupKey = "└─ Modulator";
+            }
+        }
+        else if (paramName.find("FM") != std::string::npos) {
             groupKey = "FM Synthesizer";
+        }
+        else if (paramName.find("Sine") != std::string::npos) {
+            groupKey = "Sine Oscillator";
         }
         
         groups[groupKey].push_back(i);

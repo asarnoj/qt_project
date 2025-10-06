@@ -9,6 +9,10 @@
 #include <QLabel>
 #include <QComboBox>
 #include <QTimer>
+#include <QScrollArea>
+#include <QSlider>
+#include <QLineEdit>
+#include <QDoubleValidator>
 #include <vector>
 #include "../interface/LiveController.h"
 #include "../presets/PresetManager.h"
@@ -34,6 +38,11 @@ private:
     QComboBox* presetSelector;
     QPushButton* loadButton;
     QLabel* controlsLabel;
+    
+    // Scrolling components
+    QScrollArea* scrollArea;
+    QWidget* scrollContent;
+    QVBoxLayout* scrollLayout;
     
     // Parameter controls (dynamic)
     std::vector<QHBoxLayout*> parameterLayouts;

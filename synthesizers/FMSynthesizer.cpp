@@ -12,6 +12,9 @@ FMSynthesizer::FMSynthesizer(double sampleRate)
     amplitude = 1.0;
     carrier = nullptr;
     modulator = nullptr;
+    
+    // Important: Frequency is no longer used directly by FM synthesizer
+    // It just forwards to the carrier oscillator
 }
 
 void FMSynthesizer::setCarrierOscillator(std::unique_ptr<Oscillator> carrierOsc) {
@@ -51,82 +54,43 @@ void FMSynthesizer::ensureOscillatorsExist() {
 double FMSynthesizer::nextSample() {
     ensureOscillatorsExist();
     
+    // Get the modulator's output sample
     double modulatorOutput = modulator->nextSample();
     
-    double originalCarrierFreq = carrier->getFrequency();
-    double modulatedFreq = carrierFreq + (modulatorOutput * modulationDepth);
+    // IMPORTANT: Use the ACTUAL carrier frequency, not just our stored value
+    // This ensures changes to the carrier oscillator are reflected in modulation
+    double baseCarrierFreq = carrier->getFrequency();
     
+    // Calculate the instantaneous frequency with FM applied
+    double modulatedFreq = baseCarrierFreq + (modulatorOutput * modulationDepth);
+    
+    // Temporarily set the carrier to the modulated frequency
     carrier->setFrequency(modulatedFreq);
+    
+    // Get the carrier's output sample
     double sample = carrier->nextSample() * amplitude;
-    carrier->setFrequency(originalCarrierFreq);
+    
+    // Restore the carrier's original frequency
+    carrier->setFrequency(baseCarrierFreq);
     
     return sample;
 }
 
-void FMSynthesizer::registerParametersWithPrefix(LiveController& controller, const std::string& prefix) {
-    std::cout << "🎛️ " << prefix << " registering parameters..." << std::endl;
-    
-    ensureOscillatorsExist();
-    
-    addParameterWithPrefix(controller, prefix, "Carrier Freq", &carrierFreq, 200.0, 800.0, 10.0,
-                          [this]() { 
-                              if (carrier) carrier->setFrequency(carrierFreq);
-                              frequency = carrierFreq;
-                          });
-    
-    addParameterWithPrefix(controller, prefix, "Mod Freq", &modulatorFreq, 100.0, 2000.0, 50.0,
-                          [this]() { 
-                              if (modulator) modulator->setFrequency(modulatorFreq);
-                          });
-    
-    addParameterWithPrefix(controller, prefix, "Mod Depth", &modulationDepth, 0.0, 500.0, 10.0,
-                          [this]() {
-                              if (modulationDepth < 0.0) modulationDepth = 0.0;
-                          });
-    
-    if (carrier && !carrier->getIsUsedAsComponent()) {
-        std::cout << "🔍 Discovering parameters from standalone carrier oscillator..." << std::endl;
-        carrier->registerParametersWithPrefix(controller, prefix + " Carrier");
-    } else if (carrier) {
-        std::cout << "🔧 Carrier is FM-controlled component, skipping individual parameters" << std::endl;
-        
-        if (auto* fmCarrier = dynamic_cast<FMSynthesizer*>(carrier.get())) {
-            std::cout << "🔍 Carrier is nested FM synthesizer - registering its parameters..." << std::endl;
-            fmCarrier->registerParametersWithPrefix(controller, prefix + " Carrier");
-        }
-    }
-    
-    if (modulator && !modulator->getIsUsedAsComponent()) {
-        std::cout << "🔍 Discovering parameters from standalone modulator oscillator..." << std::endl;
-        modulator->registerParametersWithPrefix(controller, prefix + " Modulator");
-    } else if (modulator) {
-        std::cout << "🔧 Modulator is FM-controlled component, skipping individual parameters" << std::endl;
-        
-        if (auto* fmModulator = dynamic_cast<FMSynthesizer*>(modulator.get())) {
-            std::cout << "🔍 Modulator is nested FM synthesizer - registering its parameters..." << std::endl;
-            fmModulator->registerParametersWithPrefix(controller, prefix + " Modulator");
-        }
-    }
-}
-
-void FMSynthesizer::registerParameters(LiveController& controller) {
-    registerParametersWithPrefix(controller, getTypeName());
-}
-
 void FMSynthesizer::setFrequency(double freq) {
-    frequency = freq;
-    carrierFreq = freq;
-    if (carrier) {
-        carrier->setFrequency(freq);
-    }
+    // Just update carrier frequency - FM doesn't use frequency directly
+    setCarrierFrequency(freq);
 }
 
 void FMSynthesizer::setCarrierFrequency(double freq) {
+    // Update our internal tracking value
     carrierFreq = freq;
+    
+    // Update the actual carrier oscillator
     if (carrier) {
         carrier->setFrequency(freq);
     }
-    frequency = freq;
+    
+    // Don't update our own frequency - we're just a container
 }
 
 void FMSynthesizer::setModulatorFrequency(double modFreq) {
@@ -146,6 +110,47 @@ void FMSynthesizer::setModulatorAmplitude(double amp) {
     }
 }
 
+void FMSynthesizer::registerParametersWithPrefix(LiveController& controller, const std::string& prefix) {
+    std::cout << "🎛️ " << prefix << " registering parameters..." << std::endl;
+    
+    ensureOscillatorsExist();
+    
+    // Only register modulation depth - this is the FM synthesizer's only real parameter
+    addParameterWithPrefix(controller, prefix, "Mod Depth", &modulationDepth, 
+                          0.0, 1000.0, 20.0,
+                          [this]() {
+                              if (modulationDepth < 0.0) modulationDepth = 0.0;
+                          });
+    
+    // Register carrier oscillator's parameters with proper prefix
+    if (carrier) {
+        std::string carrierPrefix = prefix + " Carrier";
+        if (auto* fmCarrier = dynamic_cast<FMSynthesizer*>(carrier.get())) {
+            std::cout << "🔍 Carrier is nested FM synthesizer - registering its parameters..." << std::endl;
+            fmCarrier->registerParametersWithPrefix(controller, carrierPrefix);
+        } else {
+            std::cout << "🔍 Registering carrier oscillator parameters..." << std::endl;
+            carrier->registerParametersWithPrefix(controller, carrierPrefix);
+        }
+    }
+    
+    // Register modulator oscillator's parameters with proper prefix
+    if (modulator) {
+        std::string modPrefix = prefix + " Modulator";
+        if (auto* fmModulator = dynamic_cast<FMSynthesizer*>(modulator.get())) {
+            std::cout << "🔍 Modulator is nested FM synthesizer - registering its parameters..." << std::endl;
+            fmModulator->registerParametersWithPrefix(controller, modPrefix);
+        } else {
+            std::cout << "🔍 Registering modulator oscillator parameters..." << std::endl;
+            modulator->registerParametersWithPrefix(controller, modPrefix);
+        }
+    }
+}
+
+void FMSynthesizer::registerParameters(LiveController& controller) {
+    registerParametersWithPrefix(controller, getTypeName());
+}
+
 double FMSynthesizer::getCarrierFrequency() const {
     return carrierFreq;
 }
@@ -161,3 +166,4 @@ double FMSynthesizer::getModulationDepth() const {
 double FMSynthesizer::getModulatorAmplitude() const {
     return modulator ? modulator->getAmplitude() : 0.0;
 }
+

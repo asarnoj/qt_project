@@ -13,7 +13,7 @@ public:
     void setCarrierOscillator(std::unique_ptr<Oscillator> carrierOsc);
     void setModulatorOscillator(std::unique_ptr<Oscillator> modulatorOsc);
     
-    // FM-specific parameters
+    // FM-specific parameters - now primarily managing carrier and modulator
     void setCarrierFrequency(double freq);
     void setModulatorFrequency(double modFreq);
     void setModulationDepth(double depth);
@@ -26,7 +26,7 @@ public:
     double getModulatorAmplitude() const;
     
     // Override base setters to affect carrier
-    void setFrequency(double freq) override;
+    void setFrequency(double freq) override; // Now just passes through to carrier
     
     // Automatic parameter registration
     void registerParameters(LiveController& controller) override;
@@ -37,8 +37,8 @@ private:
     std::unique_ptr<Oscillator> carrier;      // ANY oscillator type
     std::unique_ptr<Oscillator> modulator;    // ANY oscillator type
     double modulationDepth;
-    double carrierFreq;    // Store these for parameter control
-    double modulatorFreq;
+    double carrierFreq;    // Only stored for parameter initialization
+    double modulatorFreq;  // Only stored for parameter initialization
     
     // Helper to create default oscillators if none provided
     void ensureOscillatorsExist();
