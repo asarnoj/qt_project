@@ -34,6 +34,7 @@ private:
     
     // Built-in preset setup functions
     static void setupSimpleSine(Sound* sound, LiveController& controller);
+    static void setupSimpleSaw(Sound* sound, LiveController& controller);
     static void setupBasicFM(Sound* sound, LiveController& controller);
     static void setupNestedFM(Sound* sound, LiveController& controller);
 };

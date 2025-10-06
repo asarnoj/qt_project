@@ -9,8 +9,8 @@ QT6_INCLUDES = -I$(QT6_PATH)/include -I$(QT6_PATH)/include/QtCore -I$(QT6_PATH)/
 QT6_LIBS = -F$(QT6_PATH)/lib -framework QtCore -framework QtGui -framework QtMultimedia -framework QtWidgets
 MOC = $(QT6_CELLAR)/share/qt/libexec/moc
 
-# Source directories - add presets and gui directories
-SRC_DIRS = . core oscillators synthesizers audio interface presets gui
+# Source directories - add filters directory
+SRC_DIRS = . core oscillators synthesizers audio interface presets gui filters
 
 # TEMPORARILY include legacy files until we finish the transition
 ALL_SOURCES = $(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.cpp))

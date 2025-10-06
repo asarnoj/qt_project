@@ -1,11 +1,14 @@
 #include "PresetManager.h"
 #include "../oscillators/SineOscillator.h"
+#include "../oscillators/SawOscillator.h"
 #include "../synthesizers/FMSynthesizer.h"
+#include "../filters/BandPassFilter.h"
 #include <iostream>
 
 PresetManager::PresetManager() {
     // Register all built-in presets
     registerPreset("Simple Sine Wave", "Single sine oscillator with frequency and amplitude control", setupSimpleSine);
+    registerPreset("Simple Saw Wave", "Single sawtooth oscillator with frequency and amplitude control", setupSimpleSaw);
     registerPreset("FM Synthesizer", "Basic FM synthesis with sine carrier and modulator", setupBasicFM);
     registerPreset("Nested FM", "Advanced nested FM synthesis for complex timbres", setupNestedFM);
 }
@@ -53,14 +56,39 @@ void PresetManager::setupSimpleSine(Sound* sound, LiveController& controller) {
                                    });
 }
 
+void PresetManager::setupSimpleSaw(Sound* sound, LiveController& controller) {
+    auto saw = std::make_unique<SawOscillator>(44100.0);
+    saw->setFrequency(440.0);
+    // amplitude is automatically 1.0
+    saw->registerParameters(controller);
+    
+    // Create a BandPassFilter for the saw wave
+    auto bandpass = std::make_unique<BandPassFilter>(44100.0);
+    bandpass->setTargetFrequency(1000.0);  // Start with 1kHz center frequency
+    bandpass->setBandwidth(300.0);         // 300Hz bandwidth
+    bandpass->registerParameters(controller);
+    
+    // Add both the oscillator and filter to the sound
+    sound->addOscillator(std::move(saw));
+    sound->addFilter(std::move(bandpass));
+    
+    // Add master volume control with consistent 0-100 range
+    double* masterVolumePtr = sound->getMasterVolumePtr();
+    controller.addParameter("Master Volume", masterVolumePtr, 0, 100, 50);
+    controller.setParameterCallback(controller.getParameterCount() - 1, 
+                                   [sound]() {
+                                       sound->updateMasterVolume();
+                                   });
+}
+
 void PresetManager::setupBasicFM(Sound* sound, LiveController& controller) {
     auto fmSynth = std::make_unique<FMSynthesizer>(44100.0);
     
-    auto carrier = std::make_unique<SineOscillator>(44100.0);
+    auto carrier = std::make_unique<SawOscillator>(44100.0);
     carrier->setFrequency(440.0);
     // amplitude automatically 1.0
     
-    auto modulator = std::make_unique<SineOscillator>(44100.0);
+    auto modulator = std::make_unique<SawOscillator>(44100.0);
     modulator->setFrequency(880.0);
     // amplitude automatically 1.0
     

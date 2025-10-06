@@ -1,5 +1,6 @@
 #include "Sound.h"
 #include "../oscillators/SineOscillator.h"  // Fixed: Correct path from core/ to oscillators/
+#include "Filter.h"
 #include <algorithm>
 
 Sound::Sound(double sampleRate) : sampleRate(sampleRate), masterVolume(0.7) {
@@ -11,9 +12,18 @@ void Sound::addOscillator(std::unique_ptr<Oscillator> oscillator) {
     normalizeMixRatios();
 }
 
+void Sound::addFilter(std::unique_ptr<Filter> filter) {
+    filters.push_back(std::move(filter));
+}
+
+void Sound::clearFilters() {
+    filters.clear();
+}
+
 void Sound::clearOscillators() {
     oscillators.clear();
     mixRatios.clear();
+    clearFilters();  // Also clear filters when clearing oscillators
 }
 
 void Sound::generateSamples(double* buffer, int numSamples) {
@@ -35,8 +45,17 @@ double Sound::nextSample() {
         mixedSample += sample * mixRatios[i];
     }
     
+    // Process through all filters in sequence
+    for (auto& filter : filters) {
+        mixedSample = filter->processSample(mixedSample);
+    }
+    
     // Apply master volume
     return mixedSample * masterVolume;
+}
+
+double Sound::clamp(double value, double min, double max) {
+    return std::max(min, std::min(max, value));
 }
 
 void Sound::setMasterVolume(double volume) {
@@ -78,10 +97,6 @@ void Sound::normalizeMixRatios() {
             ratio = equalRatio;
         }
     }
-}
-
-double Sound::clamp(double value, double min, double max) {
-    return std::max(min, std::min(max, value));
 }
 
 double Sound::getSampleRate() const {

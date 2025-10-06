@@ -4,6 +4,7 @@
 #include <vector>
 #include <memory>
 #include "Oscillator.h"
+#include "Filter.h"
 
 class Sound {
 public:
@@ -12,7 +13,9 @@ public:
 
     // Module management
     void addOscillator(std::unique_ptr<Oscillator> oscillator);
+    void addFilter(std::unique_ptr<Filter> filter);
     void clearOscillators();
+    void clearFilters();
     
     // Audio generation
     void generateSamples(double* buffer, int numSamples);
@@ -36,6 +39,7 @@ public:
 
 private:
     std::vector<std::unique_ptr<Oscillator>> oscillators;
+    std::vector<std::unique_ptr<Filter>> filters;
     std::vector<double> mixRatios;  // Mix ratios for each oscillator
     double sampleRate;
     double masterVolume;
