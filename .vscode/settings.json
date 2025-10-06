@@ -41,7 +41,8 @@
         "variant": "cpp",
         "complex": "cpp",
         "__split_buffer": "cpp",
-        "list": "cpp"
+        "list": "cpp",
+        "memory": "cpp"
     },
     "cmake.sourceDirectory": "/Users/juliusreinholdsson/Projects/qt_project"
 }

@@ -3,6 +3,7 @@
 #include "../oscillators/SawOscillator.h"
 #include "../synthesizers/FMSynthesizer.h"
 #include "../filters/BandPassFilter.h"
+#include "../synthesizers/AdditiveSynthesizer.h" // Add this include
 #include <iostream>
 
 PresetManager::PresetManager() {
@@ -11,6 +12,7 @@ PresetManager::PresetManager() {
     registerPreset("Simple Saw Wave", "Single sawtooth oscillator with frequency and amplitude control", setupSimpleSaw);
     registerPreset("FM Synthesizer", "Basic FM synthesis with sine carrier and modulator", setupBasicFM);
     registerPreset("Nested FM", "Advanced nested FM synthesis for complex timbres", setupNestedFM);
+    registerPreset("Triple Bandpass Additive", "Saw wave split into three bandpass filters, summed additively", setupTripleBandpassAdditive);
 }
 
 void PresetManager::registerPreset(const std::string& name, const std::string& description, PresetSetupFunction setupFunc) {
@@ -149,4 +151,57 @@ void PresetManager::setupNestedFM(Sound* sound, LiveController& controller) {
                                   [sound]() {
                                       sound->updateMasterVolume();
                                   });
+}
+
+void PresetManager::setupTripleBandpassAdditive(Sound* sound, LiveController& controller) {
+    // Frequencies and bandwidths for each band
+    std::vector<double> centerFreqs = {600.0, 1200.0, 2400.0};
+    std::vector<double> bandwidths = {200.0, 300.0, 400.0};
+
+    // Prepare additive synth
+    auto additive = std::make_unique<AdditiveSynthesizer>(44100.0);
+
+    // For each band, create an independent saw oscillator and bandpass filter
+    for (int i = 0; i < 3; ++i) {
+        // Create independent saw oscillator
+        auto saw = std::make_unique<SawOscillator>(44100.0);
+        saw->setFrequency(440.0);
+        saw->registerParametersWithPrefix(controller, "Saw " + std::to_string(i + 1));
+
+        // Create bandpass filter
+        auto filter = std::make_unique<BandPassFilter>(44100.0);
+        filter->setTargetFrequency(centerFreqs[i]);
+        filter->setBandwidth(bandwidths[i]);
+        filter->registerParametersWithPrefix(controller, "Bandpass " + std::to_string(i + 1));
+
+        // Create a wrapper oscillator that applies the filter to the saw
+        struct FilteredOsc : public Oscillator {
+            std::unique_ptr<SawOscillator> saw;
+            std::unique_ptr<BandPassFilter> filter;
+            FilteredOsc(std::unique_ptr<SawOscillator> s, std::unique_ptr<BandPassFilter> f, double sr)
+                : Oscillator(sr), saw(std::move(s)), filter(std::move(f)) {}
+            double nextSample() override {
+                return filter->processSample(saw->nextSample());
+            }
+            void registerParameters(LiveController&) override {}
+            void registerParametersWithPrefix(LiveController&, const std::string&) override {}
+            std::string getTypeName() const override { return "FilteredOsc"; }
+        };
+
+        // Add the filtered oscillator to the additive synth
+        auto filteredOsc = std::make_unique<FilteredOsc>(std::move(saw), std::move(filter), 44100.0);
+        additive->addOscillator(std::move(filteredOsc));
+    }
+
+    // Register additive synth parameters
+    additive->registerParameters(controller);
+    sound->addOscillator(std::move(additive));
+
+    // Add master volume control
+    double* masterVolumePtr = sound->getMasterVolumePtr();
+    controller.addParameter("Master Volume", masterVolumePtr, 0, 100, 50);
+    controller.setParameterCallback(controller.getParameterCount() - 1, 
+                                   [sound]() {
+                                       sound->updateMasterVolume();
+                                   });
 }

@@ -37,6 +37,7 @@ private:
     static void setupSimpleSaw(Sound* sound, LiveController& controller);
     static void setupBasicFM(Sound* sound, LiveController& controller);
     static void setupNestedFM(Sound* sound, LiveController& controller);
+    static void setupTripleBandpassAdditive(Sound* sound, LiveController& controller);
 };
 
 #endif // PRESETMANAGER_H
