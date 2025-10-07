@@ -10,7 +10,7 @@ QT6_LIBS = -F$(QT6_PATH)/lib -framework QtCore -framework QtGui -framework QtMul
 MOC = $(QT6_CELLAR)/share/qt/libexec/moc
 
 # Source directories - add filters directory
-SRC_DIRS = . core oscillators synthesizers audio interface presets gui filters
+SRC_DIRS = . core oscillators synthesizers audio interface presets gui filters envelopes
 
 # TEMPORARILY include legacy files until we finish the transition
 ALL_SOURCES = $(foreach dir,$(SRC_DIRS),$(wildcard $(dir)/*.cpp))
@@ -78,3 +78,5 @@ debug-libs:
 	@find $(QT6_PATH)/lib -name "*Qt*" -type d 2>/dev/null | head -5
 
 .PHONY: all clean rebuild debug-qt debug-libs clean-legacy
+
+SRCS = $(wildcard main.cpp core/*.cpp oscillators/*.cpp synthesizers/*.cpp filters/*.cpp envelopes/*.cpp presets/*.cpp)

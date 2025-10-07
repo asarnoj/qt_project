@@ -4,6 +4,7 @@
 #include "../synthesizers/FMSynthesizer.h"
 #include "../filters/BandPassFilter.h"
 #include "../synthesizers/AdditiveSynthesizer.h" // Add this include
+#include "../envelopes/Envelope.h"
 #include <iostream>
 
 PresetManager::PresetManager() {
@@ -45,10 +46,20 @@ std::vector<std::string> PresetManager::getPresetNames() const {
 void PresetManager::setupSimpleSine(Sound* sound, LiveController& controller) {
     auto sine = std::make_unique<SineOscillator>(44100.0);
     sine->setFrequency(440.0);
-    // amplitude is automatically 1.0
     sine->registerParameters(controller);
+
+    // Create and register envelope
+    auto envelope = std::make_unique<Envelope>(44100.0);
+    envelope->setADSR(0.01, 0.1, 0.7, 0.2); // default values
+    controller.addParameter("Attack", envelope->getAttackPtr(), 0.001, 2.0, 0.01);
+    controller.addParameter("Decay", envelope->getDecayPtr(), 0.001, 2.0, 0.1);
+    controller.addParameter("Sustain", envelope->getSustainPtr(), 0.0, 1.0, 0.7);
+    controller.addParameter("Release", envelope->getReleasePtr(), 0.001, 2.0, 0.2);
+
+    // Store envelope in Sound for later use (assume Sound has addEnvelope)
     sound->addOscillator(std::move(sine));
-    
+    sound->addEnvelope(std::move(envelope));
+
     // Add master volume control with consistent 0-100 range
     double* masterVolumePtr = sound->getMasterVolumePtr();
     controller.addParameter("Master Volume", masterVolumePtr, 0, 100, 50);

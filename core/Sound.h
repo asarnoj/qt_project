@@ -3,6 +3,7 @@
 
 #include <vector>
 #include <memory>
+#include "../envelopes/Envelope.h"
 #include "Oscillator.h"
 #include "Filter.h"
 
@@ -37,13 +38,21 @@ public:
     double getSampleRate() const;
     double clamp(double value, double min, double max);
 
+    // Envelope management
+    void addEnvelope(std::unique_ptr<Envelope> env);
+    Envelope* getEnvelope(int idx = 0);
+    void clearEnvelopes();
+    void noteOn();
+    void noteOff();
+
 private:
     std::vector<std::unique_ptr<Oscillator>> oscillators;
     std::vector<std::unique_ptr<Filter>> filters;
     std::vector<double> mixRatios;  // Mix ratios for each oscillator
     double sampleRate;
     double masterVolume;
-    
+    std::vector<std::unique_ptr<Envelope>> envelopes;
+
     void normalizeMixRatios();  // Ensure ratios sum to 1.0
 };
 

@@ -196,7 +196,7 @@ void SynthesizerWindow::createParameterControls() {
         std::istringstream iss(prefix);
         std::vector<std::string> parts;
         std::string part;
-        while (std::getline(iss, part, ' '))
+        while (std::getline(iss, part, ' ')) 
             if (!part.empty()) parts.push_back(part);
 
         std::string path;
@@ -393,6 +393,8 @@ void SynthesizerWindow::syncAudioParameters() {
 void SynthesizerWindow::onPlay() {
     if (!isPlaying) {
         audioEngine.start();
+        if (audioEngine.getSound())
+            audioEngine.getSound()->noteOn();
         isPlaying = true;
         playButton->setEnabled(false);
         stopButton->setEnabled(true);
@@ -402,10 +404,32 @@ void SynthesizerWindow::onPlay() {
 
 void SynthesizerWindow::onStop() {
     if (isPlaying) {
-        audioEngine.stop();
-        isPlaying = false;
-        playButton->setEnabled(true);
-        stopButton->setEnabled(false);
-        std::cout << "⏸️ Audio stopped" << std::endl;
+        // Trigger envelope release/note off
+        if (audioEngine.getSound())
+            audioEngine.getSound()->noteOff();
+
+        // Start polling for envelope release
+        QTimer* releaseTimer = new QTimer(this);
+        releaseTimer->setInterval(20); // check every 20ms
+
+        connect(releaseTimer, &QTimer::timeout, this, [this, releaseTimer]() {
+            auto* sound = audioEngine.getSound();
+            if (!sound || !sound->getEnvelope(0) || !sound->getEnvelope(0)->isActive()) {
+                releaseTimer->stop();
+                releaseTimer->deleteLater();
+
+                // Add a short delay before stopping audio to let buffer play out
+                QTimer::singleShot(200, this, [this]() {
+                    audioEngine.stop();
+                    isPlaying = false;
+                    playButton->setEnabled(true);
+                    stopButton->setEnabled(false);
+                    std::cout << "⏸️ Audio stopped" << std::endl;
+                });
+            }
+            // else: keep waiting for envelope to finish
+        });
+
+        releaseTimer->start();
     }
 }

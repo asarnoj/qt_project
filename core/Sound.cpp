@@ -16,6 +16,10 @@ void Sound::addFilter(std::unique_ptr<Filter> filter) {
     filters.push_back(std::move(filter));
 }
 
+void Sound::addEnvelope(std::unique_ptr<Envelope> env) {
+    envelopes.push_back(std::move(env));
+}
+
 void Sound::clearFilters() {
     filters.clear();
 }
@@ -26,6 +30,10 @@ void Sound::clearOscillators() {
     clearFilters();  // Also clear filters when clearing oscillators
 }
 
+void Sound::clearEnvelopes() {
+    envelopes.clear();
+}
+
 void Sound::generateSamples(double* buffer, int numSamples) {
     for (int i = 0; i < numSamples; ++i) {
         buffer[i] = nextSample();
@@ -33,25 +41,27 @@ void Sound::generateSamples(double* buffer, int numSamples) {
 }
 
 double Sound::nextSample() {
-    if (oscillators.empty()) {
-        return 0.0;
-    }
-    
-    double mixedSample = 0.0;
-    
+    double sample = 0.0;
     // Mix all oscillators with their ratios (each oscillator outputs at amplitude 1.0)
     for (size_t i = 0; i < oscillators.size(); ++i) {
-        double sample = oscillators[i]->nextSample();
-        mixedSample += sample * mixRatios[i];
+        double oscSample = oscillators[i]->nextSample();
+        sample += oscSample * mixRatios[i];
     }
     
     // Process through all filters in sequence
     for (auto& filter : filters) {
-        mixedSample = filter->processSample(mixedSample);
+        sample = filter->processSample(sample);
     }
     
+    // Apply envelope if available
+    if (!envelopes.empty() && envelopes[0]) {
+        sample *= envelopes[0]->nextSample();
+    }
+
     // Apply master volume
-    return mixedSample * masterVolume;
+    sample *= masterVolume;
+    
+    return sample;
 }
 
 double Sound::clamp(double value, double min, double max) {
@@ -101,4 +111,22 @@ void Sound::normalizeMixRatios() {
 
 double Sound::getSampleRate() const {
     return sampleRate;
+}
+
+Envelope* Sound::getEnvelope(int idx) {
+    if (idx >= 0 && idx < static_cast<int>(envelopes.size()))
+        return envelopes[idx].get();
+    return nullptr;
+}
+
+void Sound::noteOn() {
+    for (auto& env : envelopes) {
+        env->noteOn();
+    }
+}
+
+void Sound::noteOff() {
+    for (auto& env : envelopes) {
+        env->noteOff();
+    }
 }
