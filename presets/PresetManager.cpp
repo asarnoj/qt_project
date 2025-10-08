@@ -48,19 +48,19 @@ void PresetManager::setupSimpleSine(Sound* sound, LiveController& controller) {
     sine->setFrequency(440.0);
     sine->registerParameters(controller);
 
-    // Create and register envelope
+    // Create and register envelope (times in ms, sustain in percent)
     auto envelope = std::make_unique<Envelope>(44100.0);
-    envelope->setADSR(0.01, 0.1, 0.7, 0.2); // default values
-    controller.addParameter("Attack", envelope->getAttackPtr(), 0.001, 2.0, 0.01);
-    controller.addParameter("Decay", envelope->getDecayPtr(), 0.001, 2.0, 0.1);
-    controller.addParameter("Sustain", envelope->getSustainPtr(), 0.0, 1.0, 0.7);
-    controller.addParameter("Release", envelope->getReleasePtr(), 0.001, 2.0, 0.2);
+    envelope->setADSR(10.0, 100.0, 70.0, 200.0); // ms, ms, %, ms
 
-    // Store envelope in Sound for later use (assume Sound has addEnvelope)
+    // Register envelope parameters (sustain in percent)
+    controller.addParameter("Attack", envelope->getAttackPtr(), 0.0, 2000.0, 10.0);
+    controller.addParameter("Decay", envelope->getDecayPtr(), 0.0, 2000.0, 100.0);
+    controller.addParameter("Sustain", envelope->getSustainPtr(), 0.0, 100.0, 70.0);
+    controller.addParameter("Release", envelope->getReleasePtr(), 0.0, 2000.0, 200.0);
+
     sound->addOscillator(std::move(sine));
     sound->addEnvelope(std::move(envelope));
 
-    // Add master volume control with consistent 0-100 range
     double* masterVolumePtr = sound->getMasterVolumePtr();
     controller.addParameter("Master Volume", masterVolumePtr, 0, 100, 50);
     controller.setParameterCallback(controller.getParameterCount() - 1, 

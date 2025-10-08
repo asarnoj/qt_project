@@ -28,6 +28,7 @@ private slots:
     void onLoadPreset();
     void onPlay();
     void onStop();
+    void onPower();
     void syncAudioParameters();
 
 private:
@@ -38,6 +39,7 @@ private:
     QPushButton* loadButton;
     QPushButton* playButton;
     QPushButton* stopButton;
+    QPushButton* powerButton; // Add this
     QLabel* controlsLabel;
     
     // Scrolling components
@@ -50,7 +52,7 @@ private:
     std::vector<QPushButton*> controlButtons;
     
     // Core systems
-    AudioEngine audioEngine;
+    std::unique_ptr<AudioEngine> audioEngine;
     LiveController controller;
     PresetManager presetManager;
     

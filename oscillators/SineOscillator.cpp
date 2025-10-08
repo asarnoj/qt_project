@@ -30,14 +30,8 @@ void SineOscillator::registerParameters(LiveController& controller) {
 
 void SineOscillator::registerParametersWithPrefix(LiveController& controller, const std::string& prefix) {
     std::cout << "🎛️ " << prefix << " registering sine parameters..." << std::endl;
-    
-    // Always register the frequency parameter, even when used as a component
-    // This ensures each oscillator defines its own parameter ranges
     addParameterWithPrefix(controller, prefix, "Frequency", &frequency, 
                           1, 2000, 20,
-                          []() { 
-                              // No additional update needed
-                          });
-    
-    // No amplitude parameter needed - it's now standardized to 1.0
+                          []() { });
+    // Do NOT register envelope parameters here!
 }

@@ -17,6 +17,7 @@ public:
     void stop();
     
     Sound* getSound() { return sound.get(); }
+    bool isRunning() const { return audioOutput != nullptr; }
 
 private:
     QAudioSink* audioOutput;

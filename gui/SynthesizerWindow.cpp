@@ -8,11 +8,12 @@
 SynthesizerWindow::SynthesizerWindow(QWidget* parent)
     : QMainWindow(parent), mainWidget(nullptr), mainLayout(nullptr), isPlaying(false) {
     
+    audioEngine = std::make_unique<AudioEngine>();
     setupUI();
     setupAudio();
     
     // Load default preset
-    presetManager.loadPreset(0, audioEngine.getSound(), controller);
+    presetManager.loadPreset(0, audioEngine->getSound(), controller);
     createParameterControls();
     
     // Don't auto-start audio - wait for user to click play
@@ -20,7 +21,7 @@ SynthesizerWindow::SynthesizerWindow(QWidget* parent)
 }
 
 SynthesizerWindow::~SynthesizerWindow() {
-    audioEngine.stop();
+    if (audioEngine) audioEngine->stop();
 }
 
 // -----------------------------------------------------------------------------
@@ -61,6 +62,12 @@ void SynthesizerWindow::setupUI() {
     stopButton->setEnabled(false);
     presetLayout->addWidget(stopButton);
     
+    // Add power button
+    powerButton = new QPushButton("🔌 Power On");
+    powerButton->setFixedSize(100, 30);
+    powerButton->setStyleSheet("QPushButton { background-color: #34495E; color: white; font-weight: bold; border-radius: 4px; }");
+    presetLayout->addWidget(powerButton);
+
     presetLayout->addStretch();
     
     mainLayout->addLayout(presetLayout);
@@ -97,6 +104,7 @@ void SynthesizerWindow::setupUI() {
     connect(loadButton, &QPushButton::clicked, this, &SynthesizerWindow::onLoadPreset);
     connect(playButton, &QPushButton::clicked, this, &SynthesizerWindow::onPlay);
     connect(stopButton, &QPushButton::clicked, this, &SynthesizerWindow::onStop);
+    connect(powerButton, &QPushButton::clicked, this, &SynthesizerWindow::onPower);
 }
 
 // -----------------------------------------------------------------------------
@@ -113,7 +121,7 @@ void SynthesizerWindow::setupAudio() {
 // -----------------------------------------------------------------------------
 void SynthesizerWindow::onLoadPreset() {
     int index = presetSelector->currentIndex();
-    presetManager.loadPreset(index, audioEngine.getSound(), controller);
+    presetManager.loadPreset(index, audioEngine->getSound(), controller);
     
     clearDynamicControls();
     createParameterControls();
@@ -390,46 +398,54 @@ void SynthesizerWindow::syncAudioParameters() {
     // Placeholder for additional real-time sync logic if needed.
 }
 
+void SynthesizerWindow::onPower() {
+    if (audioEngine && audioEngine->isRunning()) {
+        // Ensure sound is stopped and envelope is released
+        if (audioEngine->getSound())
+            audioEngine->getSound()->noteOff();
+        isPlaying = false;
+        playButton->setEnabled(false);
+        stopButton->setEnabled(false);
+        powerButton->setText("🔌 Power On");
+        audioEngine->stop();
+        std::cout << "🔌 Audio engine stopped." << std::endl;
+    } else {
+        // Re-create AudioEngine and Sound
+        audioEngine = std::make_unique<AudioEngine>();
+        int index = presetSelector->currentIndex();
+        presetManager.loadPreset(index, audioEngine->getSound(), controller);
+        createParameterControls();
+
+        audioEngine->start();
+        isPlaying = false;
+        playButton->setEnabled(true);
+        stopButton->setEnabled(false);
+        powerButton->setText("🔋 Power Off");
+        std::cout << "🔋 Audio engine started." << std::endl;
+    }
+}
+
 void SynthesizerWindow::onPlay() {
-    if (!isPlaying) {
-        audioEngine.start();
-        if (audioEngine.getSound())
-            audioEngine.getSound()->noteOn();
+    if (audioEngine && audioEngine->isRunning() && !isPlaying) {
+        if (audioEngine->getSound())
+            audioEngine->getSound()->noteOn();
         isPlaying = true;
         playButton->setEnabled(false);
         stopButton->setEnabled(true);
-        std::cout << "🎵 Audio started" << std::endl;
+        std::cout << "🎵 Note on" << std::endl;
     }
 }
 
 void SynthesizerWindow::onStop() {
-    if (isPlaying) {
-        // Trigger envelope release/note off
-        if (audioEngine.getSound())
-            audioEngine.getSound()->noteOff();
-
-        // Start polling for envelope release
-        QTimer* releaseTimer = new QTimer(this);
-        releaseTimer->setInterval(20); // check every 20ms
-
-        connect(releaseTimer, &QTimer::timeout, this, [this, releaseTimer]() {
-            auto* sound = audioEngine.getSound();
-            if (!sound || !sound->getEnvelope(0) || !sound->getEnvelope(0)->isActive()) {
-                releaseTimer->stop();
-                releaseTimer->deleteLater();
-
-                // Add a short delay before stopping audio to let buffer play out
-                QTimer::singleShot(200, this, [this]() {
-                    audioEngine.stop();
-                    isPlaying = false;
-                    playButton->setEnabled(true);
-                    stopButton->setEnabled(false);
-                    std::cout << "⏸️ Audio stopped" << std::endl;
-                });
-            }
-            // else: keep waiting for envelope to finish
-        });
-
-        releaseTimer->start();
+    if (audioEngine && audioEngine->isRunning() && isPlaying) {
+        if (audioEngine->getSound())
+            audioEngine->getSound()->noteOff();
+        isPlaying = false;
+        playButton->setEnabled(true);
+        stopButton->setEnabled(false);
+        std::cout << "⏸️ Note released (envelope release phase)" << std::endl;
     }
 }
+
+// No changes needed here for the envelope duplication issue.
+// If you want to be extra robust, you could filter out duplicate parameter pointers when building the GUI, but the root cause is almost always in the controller registration.

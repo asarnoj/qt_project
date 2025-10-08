@@ -42,25 +42,33 @@ void Sound::generateSamples(double* buffer, int numSamples) {
 
 double Sound::nextSample() {
     double sample = 0.0;
+    double oscSum = 0.0;
     // Mix all oscillators with their ratios (each oscillator outputs at amplitude 1.0)
     for (size_t i = 0; i < oscillators.size(); ++i) {
         double oscSample = oscillators[i]->nextSample();
-        sample += oscSample * mixRatios[i];
+        oscSum += oscSample * mixRatios[i];
     }
+    sample = oscSum;
     
     // Process through all filters in sequence
     for (auto& filter : filters) {
         sample = filter->processSample(sample);
     }
     
+    double env = 1.0;
     // Apply envelope if available
     if (!envelopes.empty() && envelopes[0]) {
-        sample *= envelopes[0]->nextSample();
+        env = envelopes[0]->nextSample();
+        sample *= env;
+        // No need to forcibly mute here; envelope will return 0.0 when inactive
     }
 
     // Apply master volume
     sample *= masterVolume;
-    
+
+    // Debug print
+    // std::cout << "oscSum: " << oscSum << " env: " << env << " sample: " << sample << std::endl;
+
     return sample;
 }
 
