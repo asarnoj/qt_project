@@ -38,6 +38,7 @@ private:
     static void setupBasicFM(Sound* sound, LiveController& controller);
     static void setupNestedFM(Sound* sound, LiveController& controller);
     static void setupTripleBandpassAdditive(Sound* sound, LiveController& controller);
+    static void softSound(Sound* sound, LiveController& controller);
 };
 
 #endif // PRESETMANAGER_H

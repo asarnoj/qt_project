@@ -3,6 +3,7 @@
 #include "../oscillators/SawOscillator.h"
 #include "../synthesizers/FMSynthesizer.h"
 #include "../filters/BandPassFilter.h"
+#include "../filters/LowPassFilter.h"
 #include "../synthesizers/AdditiveSynthesizer.h" // Add this include
 #include "../envelopes/Envelope.h"
 #include <iostream>
@@ -14,6 +15,7 @@ PresetManager::PresetManager() {
     registerPreset("FM Synthesizer", "Basic FM synthesis with sine carrier and modulator", setupBasicFM);
     registerPreset("Nested FM", "Advanced nested FM synthesis for complex timbres", setupNestedFM);
     registerPreset("Triple Bandpass Additive", "Saw wave split into three bandpass filters, summed additively", setupTripleBandpassAdditive);
+    registerPreset("Soft Sound", "Gentle blend of sine and saw through lowpass filter and envelope", softSound); // <-- Added
 }
 
 void PresetManager::registerPreset(const std::string& name, const std::string& description, PresetSetupFunction setupFunc) {
@@ -64,9 +66,9 @@ void PresetManager::setupSimpleSine(Sound* sound, LiveController& controller) {
     double* masterVolumePtr = sound->getMasterVolumePtr();
     controller.addParameter("Master Volume", masterVolumePtr, 0, 100, 50);
     controller.setParameterCallback(controller.getParameterCount() - 1, 
-                                   [sound]() {
-                                       sound->updateMasterVolume();
-                                   });
+        [sound]() {
+            sound->updateMasterVolume();
+        });
 }
 
 void PresetManager::setupSimpleSaw(Sound* sound, LiveController& controller) {
@@ -215,4 +217,65 @@ void PresetManager::setupTripleBandpassAdditive(Sound* sound, LiveController& co
                                    [sound]() {
                                        sound->updateMasterVolume();
                                    });
+}
+
+void PresetManager::softSound(Sound* sound, LiveController& controller) {
+    auto sine = std::make_unique<SineOscillator>(44100.0);
+    auto saw = std::make_unique<SawOscillator>(44100.0);
+
+    sine->setFrequency(220.0);
+    saw->setFrequency(220.0);
+
+    auto additive = std::make_unique<AdditiveSynthesizer>(44100.0);
+
+    sine->setAmplitude(0.7);
+    saw->setAmplitude(0.3);
+
+    additive->addOscillator(std::move(sine));
+    additive->addOscillator(std::move(saw));
+
+    auto filter = std::make_unique<LowPassFilter>(44100.0);
+    filter->setCutoffFrequency(2000.0);
+    filter->setResonance(0.3);
+
+    // Only register filter parameters ONCE!
+    // Remove this line if you also call sound->addFilter(filter)
+    filter->registerParametersWithPrefix(controller, "Lowpass");
+
+    // Add the filtered additive synth as an oscillator
+    struct FilteredOsc : public Oscillator {
+        std::unique_ptr<AdditiveSynthesizer> additive;
+        std::unique_ptr<LowPassFilter> filter;
+        FilteredOsc(std::unique_ptr<AdditiveSynthesizer> a, std::unique_ptr<LowPassFilter> f, double sr)
+            : Oscillator(sr), additive(std::move(a)), filter(std::move(f)) {}
+        double nextSample() override {
+            return filter->processSample(additive->nextSample());
+        }
+        std::string getTypeName() const override { return "FilteredOsc"; }
+        void registerParametersWithPrefix(LiveController& ctrl, const std::string& prefix) override {
+            additive->registerParametersWithPrefix(ctrl, prefix + " Additive");
+            filter->registerParametersWithPrefix(ctrl, prefix + " Filter");
+        }
+        void registerParameters(LiveController& ctrl) override {
+            registerParametersWithPrefix(ctrl, "");
+        }
+    };
+
+    auto filtered = std::make_unique<FilteredOsc>(std::move(additive), std::move(filter), 44100.0);
+
+    // Create and register envelope (times in ms, sustain in percent)
+    auto envelope = std::make_unique<Envelope>(44100.0);
+    envelope->setADSR(10.0, 100.0, 70.0, 200.0);
+
+    // Register envelope parameters explicitly (like setupSimpleSine)
+    controller.addParameter("Attack", envelope->getAttackPtr(), 0.0, 2000.0, 10.0);
+    controller.addParameter("Decay", envelope->getDecayPtr(), 0.0, 2000.0, 100.0);
+    controller.addParameter("Sustain", envelope->getSustainPtr(), 0.0, 100.0, 70.0);
+    controller.addParameter("Release", envelope->getReleasePtr(), 0.0, 2000.0, 200.0);
+
+    // Add the filtered oscillator and envelope to the sound, like setupSimpleSine
+    sound->addOscillator(std::move(filtered));
+    sound->addEnvelope(std::move(envelope));
+    // Do NOT call sound->addFilter for this filter, or if you do, do NOT call registerParametersWithPrefix above.
+    // ...existing code...
 }
